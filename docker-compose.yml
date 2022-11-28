@@ -7,6 +7,6 @@ services:
       - 80:80
     volumes:
       - ./api:/api
-      
+      - ./profile-images/user/profile/:/pofile-images/user/profile/
     env_file:
       - ./api/.env
