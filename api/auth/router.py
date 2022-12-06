@@ -1,8 +1,8 @@
-import random
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, HTTPException, Depends
 from fastapi.security import OAuth2PasswordRequestForm
 from api.auth import schemas
 from api.auth import crud
+from api.opts.router import send_otp, verify_otp, schemas as otp_schemas
 from api.utils import cryptoUtil, jwtUtil, constantUtil
 
 
@@ -49,44 +49,32 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
 
 
 @router.post("/auth/forgot-password")
-async def forgot_password(request: schemas.PhoneRequest):
-    # Check exited user
-    user = await crud.find_existed_user(request.phone_number)
+async def forgot_password(request: otp_schemas.CreateOTP):
+    # Check existed user
+    user = await crud.find_existed_user(int(request.recipient_id))
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-
-    # Create reset code and save it in database
-    reset_code = random.randint(1000, 9999)
-    await crud.create_reset_code(request, reset_code)
-
-    # Todo setup twiloi service to send eset_code
-
+    # Send otp to registered number/email
+    result = await send_otp(request)
     return {
         "code": 200,
         "message": "We've sent an email with instructions to reset your password.",
+        "session": result,
     }
 
 
 @router.post("/auth/reset-password")
-async def reset_password(reset_password_token: int, request: schemas.ResetPassword):
-    # Check valid reset password token
-    reset_token = await crud.check_reset_password_token(reset_password_token)
-    if not reset_token:
-        raise HTTPException(
-            status_code=404,
-            detail="Reset password token has expired, please request a new one.",
-        )
-
+async def reset_password(
+    otp_request: otp_schemas.VerifyOTP, request: schemas.ResetPassword
+):
     # Check both new & confirm password are matched
     if request.new_password != request.confirm_password:
         raise HTTPException(status_code=404, detail="New password is not match.")
 
+    # Verify Otp
+    await verify_otp(otp_request)
+
     # Reset new password
-    code_object = schemas.PhoneRequest(**reset_token)
     new_hash_password = cryptoUtil.get_password_hash(request.new_password)
-    await crud.reset_password(new_hash_password, code_object.phone_number)
-
-    # Disable reset code
-    await crud.disable_reset_code(reset_password_token, code_object.phone_number)
-
+    await crud.reset_password(new_hash_password, int(otp_request.recipient_id))
     return {"code": 200, "message": "Password has been reset successfully"}

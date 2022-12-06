@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from api.auth import router as auth_router
 from api.users import router as user_router
+from api.opts import router as otp_router
 from .utils.dbUtil import database
 
 app = FastAPI()
@@ -40,3 +41,4 @@ async def index():
 
 app.include_router(auth_router.router, tags=["Auth"])
 app.include_router(user_router.router, tags=["User"])
+app.include_router(otp_router.router, tags=["OTP"])
