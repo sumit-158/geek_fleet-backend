@@ -1,12 +1,19 @@
 version: '3.8'
 services:
-  api:
-    build: .
-    container_name: geek-fleet
-    ports:
-      - 80:80
+  auth_service:
+    build: ./api_service
+    command: uvicorn main:app --reload --host 0.0.0.0 --port 8000
     volumes:
-      - ./api:/api
-      - ./profile-images/user/profile/:/pofile-images/user/profile/
+      - ./api_service:/code/
+      - ./api_service/profile-images/user/profile/:/code/pofile-images/user/profile/
+    ports:
+      - 8002:8000
     env_file:
-      - ./api/.env
+      - .env
+    depends_on:
+      - db
+
+  db:
+    image: postgres:12.1-alpine
+    env_file:
+      - .env
