@@ -16,7 +16,7 @@ metadata = MetaData()
 users = Table(
     "my_users",
     metadata,
-    Column("id", Integer, Sequence("user_id_seq"), primary_key=True),
+    Column("user_id", String, primary_key=True),
     Column("email", String(100)),
     Column("password", String(100)),
     Column("fullname", String(50)),
@@ -59,13 +59,14 @@ otpBlocks = Table(
 vendor = Table(
     "my_vendor",
     metadata,
-    Column("id", VARCHAR(100)),
+    Column("vendor_id", String, primary_key=True),
     Column("vendor_name", String(100)),
     Column("location", String(100)),
     Column("description", String(250)),
     Column("morning_timing", FLOAT),
     Column("evening_timing", FLOAT),
-    Column("created_by", BIGINT),
+    Column("created_by", String),
+    Column("last_updated_by", String),
     Column("created_on", DateTime),
     Column("status", String(1)),
 )
@@ -79,7 +80,7 @@ review = Table(
     Column("price_to_quality", FLOAT),
     Column("hygiene", FLOAT),
     Column("service", FLOAT),
-    Column("created_by", BIGINT),
+    Column("created_by", String),
     Column("created_on", DateTime),
     Column("status", String(1)),
 )

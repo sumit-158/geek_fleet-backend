@@ -11,11 +11,11 @@ def update_user(request: user_schema.UpdateUser, currentUser: auth_schema.UserLi
         query,
         values={
             "fullname": currentUser.fullname
-            if request.fullname == "string"
+            if request.fullname is None
             else request.fullname,
-            "state": currentUser.state if request.state == "string" else request.state,
-            "city": currentUser.city if request.city == "string" else request.city,
-            "email": currentUser.email if request.email == "string" else request.email,
+            "state": currentUser.state if request.state is None else request.state,
+            "city": currentUser.city if request.city is None else request.city,
+            "email": currentUser.email if request.email is None else request.email,
             "phone_number": currentUser.phone_number,
         },
     )

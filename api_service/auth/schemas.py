@@ -13,7 +13,7 @@ class UserCreate(BaseModel):
 
 
 class UserList(BaseModel):
-    id: int = None
+    user_id: str = None
     email: str
     fullname: str
     phone_number: int
