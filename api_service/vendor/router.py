@@ -50,6 +50,7 @@ async def get_vendor_profile_by_id(vendor_id: str):
     return currentVendor
 
 
+@router.get("/vendor/profile")
 async def get_vendor_profile_by_name_loc(vendor_name: str, vendor_location: str):
     currentvendor = await crud.find_existed_vendor(vendor_name, vendor_location)
     if not currentvendor:
