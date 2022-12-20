@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field
 
 
 class CreateOTP(BaseModel):
-    recipient_id: str
+    phone_number: int
 
 
 class VerifyOTP(CreateOTP):
@@ -12,4 +12,4 @@ class VerifyOTP(CreateOTP):
 
 class InfoOTP(VerifyOTP):
     otp_failed_count: int
-    status: str
+    status: bool

@@ -1,8 +1,8 @@
-import databases
-import sqlalchemy
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.declarative import declarative_base
 from functools import lru_cache
 import config
-from models import metadata
 
 
 # 1. using Pydantic to load configuration
@@ -12,6 +12,9 @@ def setting():
 
 
 def database_pgsql_url_config():
+    """
+    Create a database URL for SQLAlchemy
+    """
     return str(
         setting().DB_CONNECTION
         + "://"
@@ -27,6 +30,21 @@ def database_pgsql_url_config():
     )
 
 
-database = databases.Database(database_pgsql_url_config())
-engine = sqlalchemy.create_engine(database_pgsql_url_config())
-metadata.create_all(engine)
+# Create the SQLAlchemy engine
+engine = create_engine(database_pgsql_url_config())
+
+# Create a SessionLocal class whose instances are a database session
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+
+# Create a Base class from which will inherit classes that will be used to create database models (the ORM models)
+Base = declarative_base()
+
+
+def get_db():
+    try:
+        # Will be used in a single request, and then close it once the request is finished
+        db = SessionLocal()
+        yield db
+    finally:
+        db.close()

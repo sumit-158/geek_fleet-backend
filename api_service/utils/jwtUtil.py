@@ -6,6 +6,8 @@ from fastapi.security import OAuth2PasswordBearer
 from jwt import PyJWTError
 from pydantic import ValidationError
 from utils import constantUtil
+from sqlalchemy.orm import Session
+from utils.dbUtil import get_db
 from auth import schemas
 from auth import crud
 
@@ -33,14 +35,17 @@ async def create_access_token(*, data: dict, expires_delta: timedelta = None):
     return encoded_jwt
 
 
-async def get_current_user(token: str = Depends(oauth2_scheme)):
+async def get_current_user(
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db),
+):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
 
-    logout_list = await crud.find_token_logout_lists(token)
+    logout_list = await crud.find_token_logout_lists(db, token)
     if logout_list:
         raise credentials_exception
 
@@ -53,14 +58,23 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
     except (PyJWTError, ValidationError):
         raise credentials_exception
 
-    user = await crud.find_existed_user(token_data.phone_number)
+    user = await crud.get_user(db, token_data.phone_number)
     if user is None:
         raise credentials_exception
-    return schemas.UserListStatus(**user)
+    return schemas.UserList(
+        user_id=user.user_id,
+        email=user.email,
+        fullname=user.fullname,
+        phone_number=user.phone_number,
+        state=user.state,
+        city=user.city,
+        created_on=user.created_on,
+        status=user.status,
+    )
 
 
 def get_current_active_user(
-    current_user: schemas.UserListStatus = Depends(get_current_user),
+    current_user: schemas.UserList = Depends(get_current_user),
 ):
     if not current_user.status:
         raise HTTPException(status_code=400, detail="Inactive user")

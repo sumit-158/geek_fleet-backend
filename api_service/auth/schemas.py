@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime
+from uuid import UUID
 
 
 class UserCreate(BaseModel):
@@ -11,24 +12,29 @@ class UserCreate(BaseModel):
     state: str = Field(..., example="sumit kumar")
     city: str = Field(..., example="sumit kumar")
 
+    class Config:
+        orm_mode = True
+
 
 class UserList(BaseModel):
-    user_id: str = None
-    email: str
+    user_id: UUID
+    email: Optional[str] = None
     fullname: str
     phone_number: int
     state: str
     city: str
     created_on: Optional[datetime] = None
-    status: str = None
+    status: bool
 
-
-class UserListStatus(UserList):
-    status: str
+    class Config:
+        orm_mode = True
 
 
 class UserPWD(UserList):
     password: str
+
+    class Config:
+        orm_mode = True
 
 
 class PhoneRequest(BaseModel):

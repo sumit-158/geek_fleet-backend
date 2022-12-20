@@ -1,62 +1,80 @@
-from utils.dbUtil import database
+from sqlalchemy.orm import Session
+from sqlalchemy.sql import text, func
+from sqlalchemy import and_
+import models
 from opts import schemas
 
 
-def find_otp_block(recipient_id: str):
-    query = "select * from my_otp_blocks where recipient_id=:recipient_id and created_on >= now() at time zone 'utc' - interval '5 minutes'"
-    return database.fetch_one(query, values={"recipient_id": recipient_id})
+async def save_otp(
+    db: Session, request: schemas.CreateOTP, session_id: str, otp_code: int
+):
+    db_item = models.Otp(
+        phone_number=request.phone_number, session_id=session_id, otp_code=otp_code
+    )
+    db.add(db_item)
+    db.commit()
+    db.refresh(db_item)
+    return db_item
 
 
-def find_otp_life_time(recipient_id: str, session_id: str):
+async def find_otp_block(db: Session, phone_number: int):
+    query = db.query(models.OtpBlock).filter(
+        and_(
+            models.OtpBlock.phone_number == phone_number,
+            models.OtpBlock.created_on >= (func.now() - text("interval '5 minutes'")),
+        )
+    )
+    return query.first()
+
+
+async def find_otp_life_time(db: Session, phone_number: int, session_id: str):
+    query = db.query(models.Otp).filter(
+        and_(
+            models.Otp.phone_number == phone_number,
+            models.Otp.session_id == session_id,
+            models.Otp.created_on >= (func.now() - text("interval '10 minutes'")),
+        )
+    )
+    return query.first()
+
+
+async def save_otp_failed_count(
+    db: Session, phone_number: int, session_id: str, otp_code: int
+):
     query = (
-        "select * from my_otps where recipient_id=:recipient_id and session_id=:session_id and "
-        "created_on >= now() at time zone 'utc' - interval '10 minutes'"
+        db.query(models.Otp)
+        .filter(
+            and_(
+                models.Otp.phone_number == phone_number,
+                models.Otp.session_id == session_id,
+                models.Otp.otp_code == otp_code,
+            )
+        )
+        .update({models.Otp.otp_failed_count: models.Otp.otp_failed_count + 1})
     )
-    return database.fetch_one(
-        query, values={"recipient_id": recipient_id, "session_id": session_id}
-    )
+    db.commit()
+    return query
 
 
-def save_otp(request: schemas.CreateOTP, session_id: str, otp_code: int):
+async def save_block_otp(db: Session, phone_number: int):
+    db_item = models.OtpBlock(phone_number=phone_number)
+    db.add(db_item)
+    db.commit()
+    db.refresh(db_item)
+    return db_item
+
+
+async def disable_otp(db: Session, phone_number: int, session_id: str, otp_code: int):
     query = (
-        "INSERT INTO my_otps(id, recipient_id, session_id, otp_code, status, created_on, otp_failed_count) "
-        "VALUES (nextval('otp_id_seq'), :recipient_id, :session_id, :otp_code, '1', now() at time zone 'UTC', 0)"
+        db.query(models.Otp)
+        .filter(
+            and_(
+                models.Otp.phone_number == phone_number,
+                models.Otp.session_id == session_id,
+                models.Otp.otp_code == otp_code,
+            )
+        )
+        .update({models.Otp.status: False})
     )
-    return database.execute(
-        query,
-        values={
-            "recipient_id": request.recipient_id,
-            "session_id": session_id,
-            "otp_code": otp_code,
-        },
-    )
-
-
-def save_otp_failed_count(request: schemas.VerifyOTP):
-    print(request)
-    query = "UPDATE my_otps SET otp_failed_count=otp_failed_count+1 where recipient_id=:recipient_id and session_id=:session_id and otp_code=:otp_code"
-    return database.execute(
-        query,
-        values={
-            "recipient_id": request.recipient_id,
-            "session_id": request.session_id,
-            "otp_code": request.otp_code,
-        },
-    )
-
-
-def save_block_otp(request: schemas.VerifyOTP):
-    query = "INSERT INTO my_otp_blocks VALUES (nextval('otp_block_id_seq'), :recipient_id, now() at time zone 'UTC')"
-    return database.execute(query, values={"recipient_id": request.recipient_id})
-
-
-def disable_otp(request: schemas.VerifyOTP):
-    query = "UPDATE my_otps SET status='9' where recipient_id=:recipient_id and session_id=:session_id and otp_code=:otp_code"
-    return database.execute(
-        query,
-        values={
-            "recipient_id": request.recipient_id,
-            "session_id": request.session_id,
-            "otp_code": request.otp_code,
-        },
-    )
+    db.commit()
+    return query

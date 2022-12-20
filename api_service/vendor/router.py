@@ -1,8 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, File, UploadFile
+from fastapi import APIRouter, Depends, HTTPException
 from auth import schemas as auth_schema
 from utils import jwtUtil
 from vendor import schemas
 from vendor import crud
+from uuid import UUID
+from utils.dbUtil import get_db
+from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/api/v1")
 
@@ -12,48 +15,59 @@ async def register(
     user: schemas.RequestVendor,
     review: schemas.RequestReview,
     currentUser: auth_schema.UserList = Depends(jwtUtil.get_current_active_user),
+    db: Session = Depends(get_db),
 ):
 
-    existed_vendor = await crud.find_existed_vendor(user.vendor_name, user.location)
+    existed_vendor = await crud.find_existed_vendor(db, user.vendor_name, user.location)
     if existed_vendor:
         raise HTTPException(status_code=404, detail="vendor already registered!")
 
     # Create vendor
-    await crud.save_vendor(user, currentUser.user_id)
-    vendor_id = await crud.find_vendor_id(user.vendor_name, user.location)
-    await crud.save_review(vendor_id["vendor_id"], review, currentUser.user_id)
-    return {**user.dict(), **review.dict()}
+    await crud.save_vendor(db, user, currentUser)
+    vendor = await crud.find_existed_vendor(db, user.vendor_name, user.location)
+    await crud.save_review(db, vendor.vendor_id, review, currentUser)
+    return {**user.dict()}, {**review.dict()}
 
 
-@router.patch("/vendor/update/{vendor_id}")
+@router.patch("/vendor/update")
 async def update_user(
-    vendor_id: str,
+    vendor_id: UUID,
     request: schemas.UpdateVendor,
     currentUser: auth_schema.UserList = Depends(jwtUtil.get_current_active_user),
+    db: Session = Depends(get_db),
 ):
-    currentVendor = await crud.find_existed_vendor_by_id(vendor_id)
-    if not currentVendor:
+    Vendor = await crud.find_existed_vendor_by_id(db, vendor_id)
+    if not Vendor:
         raise HTTPException(status_code=404, detail="vendor doesnot extist!")
-    currentVendor = schemas.VendorList(**currentVendor)
+    if Vendor.created_by != currentUser.user_id:
+        raise HTTPException(status_code=404, detail="No edit right!")
+    currentVendor = schemas.UpdateVendor(
+        vendor_name=Vendor.vendor_name,
+        location=Vendor.location,
+        description=Vendor.description,
+        morning_timing=Vendor.morning_timing,
+        evening_timing=Vendor.evening_timing,
+    )
     # Update user
-    await crud.update_vendor(vendor_id, request, currentVendor, currentUser.user_id)
+    await crud.update_vendor(db, vendor_id, request, currentVendor)
     return {"status_code": 200, "detail": "Vendor updated successfully"}
 
 
 @router.get("/vendor/profile/{vendor_id}")
-async def get_vendor_profile_by_id(vendor_id: str):
-    currentVendor = await crud.find_existed_vendor_by_id(vendor_id)
+async def get_vendor_profile_by_id(
+    vendor_id: UUID,
+    db: Session = Depends(get_db),
+):
+    currentVendor = await crud.find_existed_vendor_by_id(db, vendor_id)
 
     if not currentVendor:
         raise HTTPException(status_code=404, detail="vendor doesnot extist!")
-    currentVendor = schemas.VendorList(**currentVendor)
     return currentVendor
 
 
-@router.get("/vendor/profile")
-async def get_vendor_profile_by_name_loc(vendor_name: str, vendor_location: str):
-    currentvendor = await crud.find_existed_vendor(vendor_name, vendor_location)
-    if not currentvendor:
-        raise HTTPException(status_code=404, detail="vendor doesnot extist!")
-    currentvendor = schemas.VendorList(**currentvendor)
-    return currentvendor
+@router.get("/vendor")
+async def get_all_vendors(
+    skip: int = 0, limit: int = 100, db: Session = Depends(get_db)
+):
+    vendors = await crud.get_all_vendor(db, skip, limit)
+    return vendors

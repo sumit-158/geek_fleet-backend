@@ -1,16 +1,23 @@
 import uuid
 import random
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from opts import schemas
 from opts import crud
+from utils.dbUtil import get_db
+from sqlalchemy.orm import Session
+from auth import crud as auth_crud
 
 router = APIRouter(prefix="/api/v1")
 
 
 @router.post("/otp/send")
-async def send_otp(request: schemas.CreateOTP):
+async def send_otp(request: schemas.CreateOTP, db: Session = Depends(get_db)):
+    # Check if phone number exist in db or Not
+    user = await auth_crud.get_user(db, request.phone_number)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found!")
     # Check block OTP
-    opt_blocks = await crud.find_otp_block(request.recipient_id)
+    opt_blocks = await crud.find_otp_block(db, request.phone_number)
     if opt_blocks:
         raise HTTPException(
             status_code=404, detail="Sorry, this phone number is blocked in 5 minutes"
@@ -19,7 +26,7 @@ async def send_otp(request: schemas.CreateOTP):
     # Generate and save to table OTPs
     otp_code = random.randint(1000, 9999)
     session_id = str(uuid.uuid1())
-    await crud.save_otp(request, session_id, otp_code)
+    await crud.save_otp(db, request, session_id, otp_code)
 
     # # Send OTP to email or phone
 
@@ -27,25 +34,26 @@ async def send_otp(request: schemas.CreateOTP):
 
 
 @router.post("/otp/verify")
-async def verify_otp(request: schemas.VerifyOTP):
+async def verify_otp(request: schemas.VerifyOTP, db: Session = Depends(get_db)):
     # Check block OTP
-    opt_blocks = await crud.find_otp_block(request.recipient_id)
+    opt_blocks = await crud.find_otp_block(db, request.phone_number)
     if opt_blocks:
         raise HTTPException(
-            status_code=404, detail="Sorry, this phone number is blocked in 5 minutes"
+            status_code=404,
+            detail="Sorry, this phone number is blocked in 5 minutes",
         )
 
-    # Check OTP code 6 digit life time
-    otp_result = await crud.find_otp_life_time(request.recipient_id, request.session_id)
+    # Check OTP code 4 digit life time
+    otp_result = await crud.find_otp_life_time(
+        db, request.phone_number, request.session_id
+    )
     if not otp_result:
         raise HTTPException(
             status_code=404, detail="OTP code has expired, please request a new one."
         )
 
-    otp_result = schemas.InfoOTP(**otp_result)
-
     # Check if OTP code is already used
-    if otp_result.status == "9":
+    if otp_result.status is False:
         raise HTTPException(
             status_code=404, detail="OTP code has used, please request a new one."
         )
@@ -53,12 +61,14 @@ async def verify_otp(request: schemas.VerifyOTP):
     # Verify OTP code, if not verified,
     if otp_result.otp_code != request.otp_code:
         # Increment OTP failed count
-        await crud.save_otp_failed_count(otp_result)
+        await crud.save_otp_failed_count(
+            db, otp_result.phone_number, otp_result.session_id, otp_result.otp_code
+        )
 
         # If OTP failed count = 5
         # then block otp
         if otp_result.otp_failed_count + 1 == 5:
-            await crud.save_block_otp(otp_result)
+            await crud.save_block_otp(db, otp_result.phone_number)
             raise HTTPException(
                 status_code=404,
                 detail="Sorry, this phone number is blocked in 5 minutes",
@@ -70,6 +80,8 @@ async def verify_otp(request: schemas.VerifyOTP):
         )
 
     # Disable otp code when succeed verified
-    await crud.disable_otp(otp_result)
+    await crud.disable_otp(
+        db, otp_result.phone_number, otp_result.session_id, otp_result.otp_code
+    )
 
     return {"status_code": 200, "detail": "OTP verified successfully"}

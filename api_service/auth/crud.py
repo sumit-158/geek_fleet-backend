@@ -1,36 +1,36 @@
-from uuid import uuid4
-from utils.dbUtil import database
+from sqlalchemy.orm import Session
+from sqlalchemy import and_
 from auth import schemas
+import models
 
 
-def save_user(user: schemas.UserCreate):
-    query = "INSERT INTO my_users VALUES (:user_id,:email, :password, :fullname, :phone_number, :state, :city, now() at time zone 'UTC', '1')"
-    return database.execute(
-        query,
-        values={
-            "user_id": str(uuid4()),
-            "email": user.email,
-            "password": user.password,
-            "fullname": user.fullname,
-            "phone_number": user.phone_number,
-            "state": user.state,
-            "city": user.city,
-        },
+async def create_user(db: Session, user: schemas.UserCreate):
+    db_item = models.User(**user.dict())
+    db.add(db_item)
+    db.commit()
+    db.refresh(db_item)
+    return db_item
+
+
+async def get_user(db: Session, phone_number: int):
+    query = db.query(models.User).filter(
+        and_(models.User.phone_number == phone_number, models.User.status == True)
     )
+    return query.first()
 
 
-def find_existed_user(phone_number: int):
-    query = "select * from my_users where phone_number=:phone_number and status='1'"
-    return database.fetch_one(query, values={"phone_number": phone_number})
-
-
-def reset_password(new_password: str, phone_number: int):
-    query = "UPDATE my_users SET password=:password WHERE phone_number=:phone_number"
-    return database.execute(
-        query=query, values={"password": new_password, "phone_number": phone_number}
+async def reset_password(db: Session, new_password: str, phone_number: int):
+    query = (
+        db.query(models.User)
+        .filter(
+            models.User.phone_number == phone_number,
+        )
+        .update({models.User.password: new_password})
     )
+    db.commit()
+    return query
 
 
-def find_token_logout_lists(token: str):
-    query = "select * from my_logoutlists where token=:token"
-    return database.fetch_one(query, values={"token": token})
+async def find_token_logout_lists(db: Session, token: str):
+    query = db.query(models.logOutlists).filter(models.logOutlists.token == token)
+    return query.first()
