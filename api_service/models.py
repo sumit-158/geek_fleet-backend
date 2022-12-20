@@ -30,6 +30,7 @@ class User(Base):
     city = Column(String)
     created_on = Column(DateTime, server_default=func.now())
     status = Column(Boolean, default=True)
+    verify = Column(Boolean, default=False)
 
     vendor = relationship("Vendor", back_populates="user")
     owner = relationship("Review", back_populates="vendor_review")

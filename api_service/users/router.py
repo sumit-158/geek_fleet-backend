@@ -6,8 +6,6 @@ from users import crud as user_crud
 from auth import crud as auth_crud
 from utils.dbUtil import get_db
 from sqlalchemy.orm import Session
-import os
-from PIL import Image
 
 router = APIRouter(prefix="/api/v1")
 
@@ -44,26 +42,7 @@ async def deactivate_account(
 async def get_profile_image(
     currentUser: auth_schema.UserList = Depends(jwtUtil.get_current_active_user),
 ):
-    try:
-        cwd = os.getcwd()
-        path_image_dir = "profile-images/user/profile/" + str(currentUser.id) + "/"
-        full_image_path = os.path.join(cwd, path_image_dir, "profile.png")
-        if os.path.exists(full_image_path):
-            # resize image
-            image = Image.open(full_image_path)
-            image.thumbnail((400, 400), Image.ANTIALIAS)
-
-            full_new_image_path = os.path.join(
-                cwd, path_image_dir, "profile_400x400.png"
-            )
-            image.save(full_new_image_path)
-
-            return {
-                "profile_image": os.path.join(path_image_dir, "profile_400x400.png")
-            }
-    except Exception as e:
-        print(e)
-    return {"detail": "No such file or directory exists"}
+    return {"detail": "Todo"}
 
 
 @router.patch("/user/upload-profile-image")
@@ -71,28 +50,7 @@ async def upload_profile_image(
     file: UploadFile = File(...),
     currentUser: auth_schema.UserList = Depends(jwtUtil.get_current_active_user),
 ):
-    try:
-        cwd = os.getcwd()
-        path_image_dir = "profile-images/user/profile/" + str(currentUser.id) + "/"
-        full_image_path = os.path.join(cwd, path_image_dir, file.filename)
-
-        # Create directory if not exist
-        if not os.path.exists(path_image_dir):
-            os.mkdir(path_image_dir)
-
-        # Rename file
-        file_name = full_image_path.replace(file.filename, "profile.png")
-
-        # Write file
-        with open(file_name, "wb+") as f:
-            f.write(file.file.read())
-            f.flush()
-            f.close()
-
-        return {"profile_image": os.path.join(path_image_dir, "profile.png")}
-
-    except Exception as e:
-        print(e)
+    return "Todo"
 
 
 @router.post("/user/change-password")

@@ -22,8 +22,9 @@ async def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
     # Create new user
     user.password = cryptoUtil.get_password_hash(user.password)
     await crud.create_user(db, user)
-
-    return {**user.dict()}
+    phone = otp_schemas.CreateOTP(phone_number=user.phone_number)
+    result = await send_otp(phone, db)
+    return {**user.dict()}, {"session_id": result.get("session_id")}
 
 
 @router.post("/auth/login")

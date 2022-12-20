@@ -30,11 +30,18 @@ async def send_otp(request: schemas.CreateOTP, db: Session = Depends(get_db)):
 
     # # Send OTP to email or phone
 
-    return {"session_id": session_id, "otp_code": otp_code}
+    return {
+        "code": 200,
+        "message": "We've sent an email with instructions to reset your password.",
+        "session_id": session_id,
+    }
 
 
 @router.post("/otp/verify")
 async def verify_otp(request: schemas.VerifyOTP, db: Session = Depends(get_db)):
+    get_user = await auth_crud.get_user(db, request.phone_number)
+    if not get_user:
+        raise HTTPException(status_code=404, detail="User not found!")
     # Check block OTP
     opt_blocks = await crud.find_otp_block(db, request.phone_number)
     if opt_blocks:
@@ -83,5 +90,7 @@ async def verify_otp(request: schemas.VerifyOTP, db: Session = Depends(get_db)):
     await crud.disable_otp(
         db, otp_result.phone_number, otp_result.session_id, otp_result.otp_code
     )
+    if get_user.verify is False:
+        await auth_crud.verify_user(db, request.phone_number)
 
     return {"status_code": 200, "detail": "OTP verified successfully"}
