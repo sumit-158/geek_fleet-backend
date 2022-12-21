@@ -70,6 +70,7 @@ async def get_current_user(
         city=user.city,
         created_on=user.created_on,
         status=user.status,
+        verify=user.verify,
     )
 
 
@@ -78,4 +79,6 @@ def get_current_active_user(
 ):
     if not current_user.status:
         raise HTTPException(status_code=400, detail="Inactive user")
+    if not current_user.verify:
+        raise HTTPException(status_code=400, detail="user not verifed!")
     return current_user

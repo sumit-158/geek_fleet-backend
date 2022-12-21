@@ -20,7 +20,7 @@ class User(Base):
     __tablename__ = "users"
 
     user_id = Column(
-        PG_UUID(as_uuid=True), default=uuid.uuid4(), index=True, primary_key=True
+        PG_UUID(as_uuid=True), default=uuid.uuid4, index=True, primary_key=True
     )
     email = Column(String, index=True, nullable=True)
     password = Column(String)
@@ -68,13 +68,17 @@ class Vendor(Base):
     __tablename__ = "vendors"
 
     vendor_id = Column(
-        PG_UUID(as_uuid=True), default=uuid.uuid4(), index=True, primary_key=True
+        PG_UUID(as_uuid=True),
+        default=uuid.uuid4,
+        index=True,
+        unique=True,
+        primary_key=True,
     )
     vendor_name = Column(String)
     location = Column(String)
     description = Column(String, nullable=True)
-    morning_timing = Column(Float, nullable=True)
-    evening_timing = Column(Float, nullable=True)
+    morning_timing = Column(String, nullable=True)
+    evening_timing = Column(String, nullable=True)
     created_by = Column(PG_UUID(as_uuid=True), ForeignKey("users.user_id"), index=True)
     last_updated_on = Column(DateTime, server_default=func.now())
     created_on = Column(DateTime, server_default=func.now())
@@ -96,6 +100,7 @@ class Review(Base):
     hygiene = Column(Float, nullable=True)
     service = Column(Float, nullable=True)
     description = Column(String, nullable=True)
+    overall_rating = Column(Float, nullable=True)
     created_by = Column(PG_UUID(as_uuid=True), ForeignKey("users.user_id"), index=True)
     last_updated_on = Column(DateTime, server_default=func.now())
     created_on = Column(DateTime, server_default=func.now())

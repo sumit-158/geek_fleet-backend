@@ -3,6 +3,8 @@ from auth import schemas as auth_schema
 from utils import jwtUtil
 from vendor import schemas
 from vendor import crud
+from review import crud as review_crud
+from review import schemas as review_schemas
 from uuid import UUID
 from utils.dbUtil import get_db
 from sqlalchemy.orm import Session
@@ -13,7 +15,7 @@ router = APIRouter(prefix="/api/v1")
 @router.post("/vendor/register")
 async def register(
     user: schemas.RequestVendor,
-    review: schemas.RequestReview,
+    review: review_schemas.RequestReview,
     currentUser: auth_schema.UserList = Depends(jwtUtil.get_current_active_user),
     db: Session = Depends(get_db),
 ):
@@ -25,7 +27,12 @@ async def register(
     # Create vendor
     await crud.save_vendor(db, user, currentUser)
     vendor = await crud.find_existed_vendor(db, user.vendor_name, user.location)
-    await crud.save_review(db, vendor.vendor_id, review, currentUser)
+    overall_rating = (
+        review.taste + review.service + review.hygiene + review.price_to_quality
+    ) / 4
+    await review_crud.save_review(
+        db, vendor.vendor_id, review, overall_rating, currentUser
+    )
     return {**user.dict()}, {**review.dict()}
 
 

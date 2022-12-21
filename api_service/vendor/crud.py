@@ -25,31 +25,17 @@ async def find_existed_vendor(db: Session, vendor_name: str, location: str):
         and_(
             models.Vendor.vendor_name == vendor_name,
             models.Vendor.location == location,
+            models.Vendor.status == True,
         )
     )
     return query.first()
 
 
 async def find_existed_vendor_by_id(db: Session, vendor_id: UUID):
-    query = db.query(models.Vendor).filter(models.Vendor.vendor_id == vendor_id)
-    return query.first()
-
-
-async def save_review(
-    db: Session,
-    vendor_id: UUID,
-    review: schemas.RequestReview,
-    currentUser: auth_schema.UserList,
-):
-    db_item = models.Review(
-        vendor_id=vendor_id,
-        **review.dict(),
-        created_by=currentUser.user_id,
+    query = db.query(models.Vendor).filter(
+        and_(models.Vendor.vendor_id == vendor_id, models.Vendor.status == True)
     )
-    db.add(db_item)
-    db.commit()
-    db.refresh(db_item)
-    return db_item
+    return query.first()
 
 
 async def update_vendor(
@@ -60,7 +46,9 @@ async def update_vendor(
 ):
     query = (
         db.query(models.Vendor)
-        .filter(models.Vendor.vendor_id == vendor_id)
+        .filter(
+            and_(models.Vendor.vendor_id == vendor_id, models.Vendor.status == True)
+        )
         .update(
             {
                 models.Vendor.vendor_name: currentVendor.vendor_name
@@ -87,4 +75,10 @@ async def update_vendor(
 
 
 async def get_all_vendor(db: Session, skip: int = 0, limit: int = 100):
-    return db.query(models.Vendor).offset(skip).limit(limit).all()
+    return (
+        db.query(models.Vendor)
+        .filter(models.Vendor.status == True)
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )

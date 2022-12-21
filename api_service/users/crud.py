@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
 from utils import cryptoUtil
+from sqlalchemy import and_
 from users import schemas as user_schema
 from auth import schemas as auth_schema
 import models
@@ -10,7 +11,12 @@ async def update_user(
 ):
     query = (
         db.query(models.User)
-        .filter(models.User.phone_number == currentUser.phone_number)
+        .filter(
+            and_(
+                models.User.phone_number == currentUser.phone_number,
+                models.User.status == True,
+            )
+        )
         .update(
             {
                 models.User.fullname: currentUser.fullname
@@ -35,7 +41,12 @@ async def update_user(
 async def deactivate_user(db: Session, currentUser: auth_schema.UserList):
     query = (
         db.query(models.User)
-        .filter(models.User.phone_number == currentUser.phone_number)
+        .filter(
+            and_(
+                models.User.phone_number == currentUser.phone_number,
+                models.User.status == True,
+            )
+        )
         .update({models.User.state: False})
     )
     db.commit()
@@ -47,7 +58,12 @@ async def change_password(
 ):
     query = (
         db.query(models.User)
-        .filter(models.User.phone_number == currentUser.phone_number)
+        .filter(
+            and_(
+                models.User.phone_number == currentUser.phone_number,
+                models.User.status == True,
+            )
+        )
         .update(
             {models.User.password: cryptoUtil.get_password_hash(chgPwd.new_password)}
         )

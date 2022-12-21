@@ -25,6 +25,7 @@ class UserList(BaseModel):
     city: str
     created_on: Optional[datetime] = None
     status: bool
+    verify: bool
 
     class Config:
         orm_mode = True
